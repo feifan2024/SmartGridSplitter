@@ -10,10 +10,10 @@
   },
   "dependencies": {
     "react": "^19.2.3",
-    "lucide-react": "^0.562.0",
     "react-dom": "^19.2.3",
-    "@google/genai": "^1.34.0",
-    "jszip": "^3.10.1"
+    "jszip": "^3.10.1",
+    "lucide-react": "^0.562.0",
+    "@imgly/background-removal": "^1.7.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
