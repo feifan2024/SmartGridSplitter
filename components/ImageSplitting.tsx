@@ -1,6 +1,6 @@
 
-import React, { useState, useRef } from 'react';
-import { Upload, Download, X, RefreshCw, Layers, Zap } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Upload, Download, X, RefreshCw, Layers, Zap, Trash2, AlertCircle } from 'lucide-react';
 import GridSelector from './GridSelector';
 import { GridType, GRID_LAYOUTS, SplitResult } from '../types';
 import { splitImage, downloadDataUrl, createZipAndDownload } from '../utils/imageUtils';
@@ -13,8 +13,21 @@ const ImageSplitting: React.FC = () => {
   const [results, setResults] = useState<SplitResult[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const confirmTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (showClearConfirm) {
+      confirmTimerRef.current = window.setTimeout(() => {
+        setShowClearConfirm(false);
+      }, 3000);
+    }
+    return () => {
+      if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
+    };
+  }, [showClearConfirm]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -25,6 +38,26 @@ const ImageSplitting: React.FC = () => {
         setResults([]);
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleClear = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    if (!sourceImage && results.length === 0) return;
+
+    if (!showClearConfirm) {
+      setShowClearConfirm(true);
+      return;
+    }
+
+    setSourceImage(null);
+    setResults([]);
+    setShowClearConfirm(false);
+    if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
+    
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -72,35 +105,46 @@ const ImageSplitting: React.FC = () => {
     <div className="space-y-12">
       <section className="grid lg:grid-cols-2 gap-12">
         <div className="space-y-8">
-          <div 
-            onClick={() => fileInputRef.current?.click()}
-            className={`relative group cursor-pointer aspect-video rounded-[2.5rem] border-2 border-dashed transition-all duration-500 flex flex-col items-center justify-center p-8 ${
-              sourceImage ? 'border-blue-100 bg-blue-50/10 shadow-sm' : 'border-slate-200 bg-slate-50/30 hover:border-blue-400 hover:bg-white hover:shadow-xl hover:shadow-blue-50'
-            }`}
-          >
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              className="hidden" 
-              accept="image/*" 
-              onChange={handleFileChange} 
-            />
-            {sourceImage ? (
-              <div className="relative w-full h-full">
-                <img src={sourceImage} className="w-full h-full object-contain rounded-2xl" alt="Upload" />
-                <div className="absolute inset-0 bg-blue-600/40 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl flex items-center justify-center">
-                  <div className="bg-white px-6 py-2 rounded-full text-blue-600 font-bold shadow-lg">点击更换图片</div>
+          <div className="relative group">
+            <div 
+              onClick={() => !sourceImage && fileInputRef.current?.click()}
+              className={`relative aspect-video rounded-[2.5rem] border-2 border-dashed transition-all duration-500 flex flex-col items-center justify-center p-8 ${
+                sourceImage ? 'border-blue-100 bg-blue-50/10 shadow-sm cursor-default' : 'border-slate-200 bg-slate-50/30 hover:border-blue-400 hover:bg-white hover:shadow-xl hover:shadow-blue-50 cursor-pointer'
+              }`}
+            >
+              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
+              {sourceImage ? (
+                <div className="relative w-full h-full">
+                  <img src={sourceImage} className="w-full h-full object-contain rounded-2xl" alt="Upload" />
+                  <div className="absolute top-4 right-4 flex gap-2">
+                    <button 
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+                      className="bg-white/90 backdrop-blur px-4 py-2 rounded-full text-blue-600 font-bold shadow-lg text-xs hover:bg-blue-600 hover:text-white transition-all"
+                    >
+                      更换图片
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={handleClear}
+                      className={`backdrop-blur p-2 rounded-full font-bold shadow-lg transition-all ${
+                        showClearConfirm ? 'bg-red-600 text-white animate-pulse' : 'bg-white/90 text-red-500 hover:bg-red-500 hover:text-white'
+                      }`}
+                    >
+                      {showClearConfirm ? <AlertCircle size={16} /> : <Trash2 size={16} />}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="text-center group">
-                <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
-                  <Upload size={28} />
+              ) : (
+                <div className="text-center group">
+                  <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                    <Upload size={28} />
+                  </div>
+                  <p className="text-slate-700 font-black">上传待切割的宫格图</p>
+                  <p className="text-slate-400 text-xs mt-1">支持 4/6/8/9/12 宫格布局</p>
                 </div>
-                <p className="text-slate-700 font-black">上传待切割的宫格图</p>
-                <p className="text-slate-400 text-xs mt-1">支持 4/6/8/9/12 宫格布局</p>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           <GridSelector 
@@ -111,6 +155,7 @@ const ImageSplitting: React.FC = () => {
           />
 
           <button
+            type="button"
             disabled={!sourceImage || isProcessing}
             onClick={handleProcess}
             className={`w-full py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 transition-all duration-300 ${
@@ -134,8 +179,8 @@ const ImageSplitting: React.FC = () => {
               {[
                 { title: "像素重构技术", desc: "采用高质量插值算法，在缩放过程中保持边缘锐利，减少锯齿。" },
                 { title: "4K 级超清输出", desc: "将每一个宫格切片自动拉伸至超高清分辨率，满足专业打印需求。" },
-                { title: "隐私离线处理", desc: "所有增强过程均在您的浏览器本地完成，无需上传云端，无泄露风险。" },
-                { title: "零费用无限使用", desc: "不消耗 API 额度，无并发限制，处理速度受限于您的硬件性能。" }
+                { title: "隐私离线处理", desc: "所有增强过程均在您的浏览器本地完成，无需上传云端。" },
+                { title: "零费用无限使用", desc: "不消耗任何云端 API 额度，处理速度取决于您的设备性能。" }
               ].map((item, i) => (
                 <li key={i} className="flex gap-4">
                   <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-black flex-shrink-0 mt-0.5 shadow-lg shadow-blue-100">{i + 1}</div>
@@ -157,13 +202,26 @@ const ImageSplitting: React.FC = () => {
               <h2 className="text-2xl font-black text-slate-800 tracking-tight">重建中心</h2>
               <p className="text-slate-400 text-xs font-medium mt-1 uppercase tracking-widest">Local Reconstruction Center • {results.length} Tiles</p>
             </div>
-            <button 
-              onClick={handleDownloadAll}
-              className="flex items-center gap-2.5 px-8 py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-xl shadow-blue-100"
-            >
-              <Download size={20} />
-              打包下载所有切片
-            </button>
+            <div className="flex gap-3">
+              <button 
+                type="button"
+                onClick={handleClear}
+                className={`flex items-center gap-2.5 px-6 py-4 rounded-2xl font-bold transition-all shadow-sm border ${
+                  showClearConfirm ? 'bg-red-600 text-white border-red-600 animate-pulse' : 'bg-white text-red-500 border-red-100 hover:bg-red-50'
+                }`}
+              >
+                {showClearConfirm ? <AlertCircle size={20} /> : <Trash2 size={20} />}
+                {showClearConfirm ? '确认清空？' : '清空结果'}
+              </button>
+              <button 
+                type="button"
+                onClick={handleDownloadAll}
+                className="flex items-center gap-2.5 px-8 py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-xl shadow-blue-100"
+              >
+                <Download size={20} />
+                打包下载所有切片
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
@@ -174,7 +232,7 @@ const ImageSplitting: React.FC = () => {
                   {res.upscaledUrl && (
                     <div className="absolute top-4 left-4 px-3 py-1 bg-blue-600 text-white text-[10px] font-black rounded-full flex items-center gap-1.5 shadow-lg">
                       <Zap size={10} className="fill-current" />
-                      4K RECONSTRUCTED
+                      4K READY
                     </div>
                   )}
                   {res.isUpscaling && (
@@ -189,6 +247,7 @@ const ImageSplitting: React.FC = () => {
                   <div className="flex gap-2">
                     {!res.upscaledUrl && !res.isUpscaling && (
                       <button 
+                        type="button"
                         onClick={() => handleUpscale(res.id)} 
                         className="p-3 text-blue-600 bg-blue-50 hover:bg-blue-600 hover:text-white rounded-xl transition-all shadow-sm"
                         title="高清增强"
@@ -197,6 +256,7 @@ const ImageSplitting: React.FC = () => {
                       </button>
                     )}
                     <button 
+                      type="button"
                       onClick={() => setPreviewImage(res.upscaledUrl || res.dataUrl)} 
                       className="p-3 text-slate-500 bg-slate-50 hover:bg-slate-900 hover:text-white rounded-xl transition-all shadow-sm"
                     >
