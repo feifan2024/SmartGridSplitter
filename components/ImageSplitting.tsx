@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Download, X, RefreshCw, Layers, Zap, Trash2, AlertCircle, LayoutGrid, Info, Sparkles } from 'lucide-react';
+import { Upload, Download, X, RefreshCw, Layers, Zap, Trash2, AlertCircle, LayoutGrid, Info, Sparkles, ChevronDown } from 'lucide-react';
 import { GridType, GRID_LAYOUTS, SplitResult } from '../types';
 import { splitImage, createZipAndDownload } from '../utils/imageUtils';
 import { upscaleImage } from '../services/geminiService';
@@ -94,7 +94,6 @@ const ImageSplitting: React.FC = () => {
     }
   };
 
-  // 一键全高清功能
   const handleBatchUpscale = async () => {
     if (results.length === 0 || isBatchUpscaling) return;
     
@@ -102,9 +101,7 @@ const ImageSplitting: React.FC = () => {
     const pendingItems = results.filter(r => !r.upscaledUrl);
     
     for (const item of pendingItems) {
-      // 在处理每个切片前检查是否已被重置（防止异步冲突）
       setResults(prev => prev.map(r => r.id === item.id ? { ...r, isUpscaling: true } : r));
-      
       try {
         const upscaled = await upscaleImage(item.dataUrl);
         setResults(prev => prev.map(r => r.id === item.id ? { ...r, upscaledUrl: upscaled, isUpscaling: false } : r));
@@ -125,7 +122,7 @@ const ImageSplitting: React.FC = () => {
 
   return (
     <div className="space-y-10">
-      {/* 顶部面板 */}
+      {/* 顶部面板 - 优化后的布局 */}
       <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8 bg-slate-50/80 backdrop-blur-md p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
         <div className="space-y-1.5 min-w-[280px]">
           <h2 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2.5">
@@ -136,19 +133,31 @@ const ImageSplitting: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
-          {/* 宫格选择器 */}
-          <div className="bg-white p-1.5 rounded-2xl border border-slate-100 flex gap-1 shadow-inner overflow-x-auto no-scrollbar max-w-full lg:max-w-[550px]">
-            {Object.values(GridType).map((type) => (
-              <button
-                key={type}
-                onClick={() => { setGridType(type); setLayoutIndex(0); setResults([]); setSplitInfo(null); }}
-                className={`px-4 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
-                  gridType === type ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                {type} 宫格
-              </button>
-            ))}
+          {/* 宫格选择下拉框 */}
+          <div className="relative group min-w-[180px]">
+            <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+              <LayoutGrid size={16} className="text-blue-500" />
+            </div>
+            <select
+              value={gridType}
+              onChange={(e) => {
+                setGridType(e.target.value as GridType);
+                setLayoutIndex(0);
+                setResults([]);
+                setSplitInfo(null);
+                setIsBatchUpscaling(false);
+              }}
+              className="appearance-none w-full bg-white pl-12 pr-10 py-3 rounded-2xl border border-slate-200 text-slate-700 font-black text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer shadow-sm hover:border-slate-300"
+            >
+              {Object.values(GridType).map((type) => (
+                <option key={type} value={type}>
+                  {type} 宫格模式
+                </option>
+              ))}
+            </select>
+            <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none">
+              <ChevronDown size={16} className="text-slate-400 group-hover:text-slate-600 transition-colors" />
+            </div>
           </div>
 
           <div className="flex gap-2 ml-auto">
@@ -156,7 +165,7 @@ const ImageSplitting: React.FC = () => {
               <button
                 onClick={handleClear}
                 className={`flex items-center gap-2 px-5 py-3 rounded-xl font-bold border transition-all text-sm active:scale-95 ${
-                  showClearConfirm ? 'bg-red-600 text-white animate-pulse border-red-600' : 'bg-white text-red-500 border-red-100 hover:bg-red-50'
+                  showClearConfirm ? 'bg-red-600 text-white animate-pulse border-red-600' : 'bg-white text-red-500 border-red-100 hover:bg-red-50 shadow-sm'
                 }`}
               >
                 {showClearConfirm ? <AlertCircle size={16} /> : <Trash2 size={16} />}
@@ -169,7 +178,7 @@ const ImageSplitting: React.FC = () => {
               className="px-6 py-3 bg-white text-slate-700 rounded-xl font-bold hover:bg-slate-100 transition-all border border-slate-200 flex items-center gap-2 text-sm shadow-sm active:scale-95"
             >
               <Upload size={16} />
-              上传
+              上传图片
             </button>
 
             <button
@@ -180,7 +189,7 @@ const ImageSplitting: React.FC = () => {
               }`}
             >
               {isProcessing ? <RefreshCw size={16} className="animate-spin" /> : <Layers size={16} />}
-              立即均匀切割
+              立即拆解
             </button>
           </div>
         </div>
@@ -194,20 +203,20 @@ const ImageSplitting: React.FC = () => {
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-blue-100 text-blue-600 rounded-xl"><LayoutGrid size={20} /></div>
             <div>
-              <p className="text-[10px] text-blue-400 font-black uppercase tracking-widest">Detected Dimensions</p>
+              <p className="text-[10px] text-blue-400 font-black uppercase tracking-widest">原图分辨率</p>
               <p className="text-blue-900 font-black">{splitInfo.originalW}px × {splitInfo.originalH}px</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-green-100 text-green-600 rounded-xl"><Info size={20} /></div>
             <div>
-              <p className="text-[10px] text-green-500 font-black uppercase tracking-widest">Calculated Uniform Tile</p>
+              <p className="text-[10px] text-green-500 font-black uppercase tracking-widest">单格计算尺寸</p>
               <p className="text-green-900 font-black">{splitInfo.tileW}px × {splitInfo.tileH}px</p>
             </div>
           </div>
           <div className="ml-auto flex items-center gap-2 text-blue-500 font-bold text-xs bg-white px-4 rounded-full border border-blue-100 shadow-sm">
             <CheckCircleIcon size={14} />
-            <span>Mathematical Accuracy Verified</span>
+            <span>数学精确对齐已验证</span>
           </div>
         </div>
       )}
@@ -221,8 +230,8 @@ const ImageSplitting: React.FC = () => {
           <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-inner">
             <Upload size={40} />
           </div>
-          <p className="text-slate-800 font-black text-lg">拖入宫格合集图</p>
-          <p className="text-slate-400 text-xs mt-3 font-medium uppercase tracking-[0.2em]">支持 4 到 20 宫格全系列切分</p>
+          <p className="text-slate-800 font-black text-lg">点击或拖入宫格合集图</p>
+          <p className="text-slate-400 text-xs mt-3 font-medium uppercase tracking-[0.2em]">自动识别像素边界，实现 100% 均匀切分</p>
         </div>
       ) : (
         <div className="space-y-10">
@@ -230,7 +239,7 @@ const ImageSplitting: React.FC = () => {
           <div className="flex flex-col md:flex-row gap-6">
             {GRID_LAYOUTS[gridType].length > 1 && (
               <div className="flex-1 flex items-center gap-5 bg-slate-50/30 p-5 rounded-[2rem] border border-slate-100 shadow-sm">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] ml-2">选择分布方向:</span>
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] ml-2">排列方向:</span>
                 <div className="flex gap-3">
                   {GRID_LAYOUTS[gridType].map((layout, idx) => (
                     <button
@@ -253,10 +262,10 @@ const ImageSplitting: React.FC = () => {
             )}
 
             {results.length > 0 && (
-              <div className="flex-none flex items-center gap-4 bg-blue-50/30 p-5 rounded-[2rem] border border-blue-100/50 shadow-sm">
+              <div className="flex-none flex items-center gap-4 bg-blue-50/30 p-5 rounded-[2rem] border border-blue-100/50 shadow-sm ml-auto">
                 <div className="flex flex-col mr-2">
-                  <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">SmartBatch Engine</span>
-                  <span className="text-[11px] font-bold text-blue-900">{upscaledCount}/{results.length} 已增强</span>
+                  <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">高清增强引擎</span>
+                  <span className="text-[11px] font-bold text-blue-900">{upscaledCount}/{results.length} 已就绪</span>
                 </div>
                 <button
                   onClick={handleBatchUpscale}
@@ -268,7 +277,7 @@ const ImageSplitting: React.FC = () => {
                   }`}
                 >
                   {isBatchUpscaling ? <RefreshCw size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                  <span>{isBatchUpscaling ? '全高清增强中...' : '一键全高清'}</span>
+                  <span>{isBatchUpscaling ? '正在处理中...' : '一键全高清'}</span>
                 </button>
               </div>
             )}
@@ -289,12 +298,12 @@ const ImageSplitting: React.FC = () => {
                     {res.isUpscaling && (
                       <div className="absolute inset-0 bg-white/95 backdrop-blur-md flex flex-col items-center justify-center px-6 text-center z-10">
                         <RefreshCw className="animate-spin text-blue-600 w-10 h-10 mb-4" />
-                        <span className="text-blue-900 text-[10px] font-black uppercase tracking-widest">像素重构中</span>
+                        <span className="text-blue-900 text-[10px] font-black uppercase tracking-widest">高清重构中</span>
                       </div>
                     )}
                   </div>
                   <div className="p-4 flex items-center justify-between bg-white">
-                    <span className="text-[10px] font-black text-slate-300 tracking-[0.3em] uppercase">NO.{idx + 1}</span>
+                    <span className="text-[10px] font-black text-slate-300 tracking-[0.3em] uppercase">序号 {idx + 1}</span>
                     <div className="flex gap-2">
                       {!res.upscaledUrl && !res.isUpscaling && (
                         <button onClick={() => handleUpscale(res.id)} className="p-2.5 text-blue-600 bg-blue-50 hover:bg-blue-600 hover:text-white rounded-xl transition-all active:scale-90" title="4K 增强"><Zap size={15} className="fill-current" /></button>
@@ -311,10 +320,10 @@ const ImageSplitting: React.FC = () => {
                  <div className="aspect-video bg-slate-100 rounded-[3rem] border border-slate-200 overflow-hidden relative group shadow-sm">
                     <img src={sourceImage} className="w-full h-full object-contain" alt="Original" />
                     <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-md">
-                       <p className="text-white font-black text-xl tracking-[0.3em] uppercase">准备均匀切割</p>
+                       <p className="text-white font-black text-xl tracking-[0.3em] uppercase">准备执行均匀切分</p>
                     </div>
                  </div>
-                 <p className="text-center text-slate-400 text-xs mt-10 font-black uppercase tracking-[0.2em]">已就绪：点击右上方“立即均匀切割”</p>
+                 <p className="text-center text-slate-400 text-xs mt-10 font-black uppercase tracking-[0.2em]">已就绪：点击右上方“立即拆解”按钮开始</p>
                </div>
              )
           )}
@@ -326,7 +335,7 @@ const ImageSplitting: React.FC = () => {
                 className="group flex items-center gap-5 px-16 py-6 bg-slate-900 text-white rounded-[2.5rem] font-black text-xl hover:bg-blue-600 transition-all shadow-2xl active:scale-[0.97]"
               >
                 <Download size={26} className="group-hover:translate-y-1 transition-transform" />
-                下载全部 {results.length} 个等大{upscaledCount > 0 ? '高清' : ''}切片
+                下载全部 {results.length} 个等大切片
               </button>
             </div>
           )}
